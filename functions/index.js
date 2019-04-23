@@ -103,6 +103,34 @@ exports.newArticleNotification = functions.database.ref('feeds/{feedId}/{postId}
     });
 });
 
+exports.newCommentNotification = functions.database.ref('Comments/{feedId}/{postId}/{commentId}')
+    .onCreate((snapshot, context) => {
+    const topicId = "comment-" + context.params.feedId
+    console.log(topicId);
+
+    const senderId = snapshot.val().uid
+    return admin.firestore().collection("users").doc(senderId).get().then (function(doc) {
+        return admin.firestore().collection("groups").doc(context.params.feedId).get().then (function(doc1) {
+            var message = {
+                notification: {
+                    title: 'New Comment',
+                    body: doc.data().firstName +' posted a new comment on an Article in your group ' + doc1.data().name
+                  },
+                topic: topicId
+              };
+    
+            return admin.messaging().send(message).then((response) => {
+                // Response is a message ID string.
+                console.log('Successfully sent message:', response);
+            })
+        })
+        
+        
+    }).catch ((error) => {
+        console.log('Error sending message:', error);
+    });
+});
+
 exports.notifyNewGroupUsers = functions.database
         .ref('newGroup/{groupId}/{userId}')
         .onCreate(snapshot => {
