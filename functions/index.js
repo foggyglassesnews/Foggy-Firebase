@@ -60,7 +60,10 @@ exports.groupInvitationNotificationn = functions.database.ref('userPendingGroups
                 title: 'New Group Invitation',
                 body: 'You have been invited to join - ' + doc.data().name
               },
-            topic: topicId
+            topic: topicId,
+            data: {
+                groupId: context.params.groupId
+            }
           };
         
         return admin.messaging().send(message).then((response) => {
@@ -71,8 +74,6 @@ exports.groupInvitationNotificationn = functions.database.ref('userPendingGroups
           console.log('Error sending message:', error);
         });
     })
-    
-    
 });
 
 exports.newArticleNotification = functions.database.ref('feeds/{feedId}/{postId}')
@@ -88,7 +89,11 @@ exports.newArticleNotification = functions.database.ref('feeds/{feedId}/{postId}
                     title: 'New Article',
                     body: doc.data().firstName +' shared an Article to your group ' + doc1.data().name
                   },
-                topic: topicId
+                topic: topicId,
+                data: {
+                    articleId: context.params.postId,
+                    groupId: context.params.feedId
+                }
               };
     
             return admin.messaging().send(message).then((response) => {
@@ -116,7 +121,11 @@ exports.newCommentNotification = functions.database.ref('Comments/{feedId}/{post
                     title: 'New Comment',
                     body: doc.data().firstName +' posted a new comment on an Article in your group ' + doc1.data().name
                   },
-                topic: topicId
+                topic: topicId,
+                data: {
+                    articleId: context.params.postId,
+                    groupId: context.params.feedId
+                }
               };
     
             return admin.messaging().send(message).then((response) => {
