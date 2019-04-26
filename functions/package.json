@@ -13,5 +13,8 @@
     "firebase-functions": "^2.1.0",
     "twilio": "^3.28.1"
   },
+  "engines": {
+    "node": "8"
+  },
   "private": true
 }

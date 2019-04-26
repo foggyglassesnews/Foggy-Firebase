@@ -76,6 +76,46 @@ exports.groupInvitationNotificationn = functions.database.ref('userPendingGroups
     })
 });
 
+exports.sendArticleNotificationToGroupMembers = functions.database.ref('feeds/{feedId}/{postId}')
+    .onCreate((snapshot, context) => {
+    // const topicId = "feed-" + context.params.feedId
+    // console.log(topicId);
+    
+    const feedId = context.params.feedId;
+    console.log(feedId);
+    const senderId = snapshot.val().senderId;
+    console.log(senderId);
+    return admin.firestore().collection("users").doc(senderId).get().then (function(doc) {
+        return admin.firestore().collection("groups").doc(context.params.feedId).get().then (function(doc1) {
+            return admin.database().ref("notifications").child("newArticle").child(feedId).once('value').then(notifications => {
+                notifications.forEach(user =>{ 
+                    if (user.key == senderId) {
+                        return;
+                    }
+                    
+                });
+                console.log(notifications.val());
+                return;
+                // var message = {
+                //     notification: {
+                //         title: 'New Article',
+                //         body: doc.data().firstName +' shared an Article to your group ' + doc1.data().name
+                //       },
+                //     topic: topicId,
+                //     data: {
+                //         articleId: context.params.postId,
+                //         groupId: context.params.feedId
+                //     }
+                //   };
+        
+                // return admin.messaging().send(message).then((response) => {
+                //     // Response is a message ID string.
+                //     console.log('Successfully sent message:', response);
+                // })
+            });
+        });
+    });
+});
 exports.newArticleNotification = functions.database.ref('feeds/{feedId}/{postId}')
     .onCreate((snapshot, context) => {
     const topicId = "feed-" + context.params.feedId
