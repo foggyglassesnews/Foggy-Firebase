@@ -90,28 +90,31 @@ exports.sendArticleNotificationToGroupMembers = functions.database.ref('feeds/{f
             return admin.database().ref("notifications").child("newArticle").child(feedId).once('value').then(notifications => {
                 notifications.forEach(user =>{ 
                     if (user.key == senderId) {
+                        console.log("Ignoring sender Id")
                         return;
+                    } else {
+                        var message = {
+                            notification: {
+                                title: 'New Article',
+                                body: doc.data().firstName +' shared an Article to your group ' + doc1.data().name
+                              },
+                            token: user.val(),
+                            data: {
+                                articleId: context.params.postId,
+                                groupId: context.params.feedId
+                            }
+                          };
+                
+                        return admin.messaging().send(message).then((response) => {
+                            // Response is a message ID string.
+                            console.log('Successfully sent message:', response);
+                        })
                     }
                     
                 });
                 console.log(notifications.val());
                 return;
-                // var message = {
-                //     notification: {
-                //         title: 'New Article',
-                //         body: doc.data().firstName +' shared an Article to your group ' + doc1.data().name
-                //       },
-                //     topic: topicId,
-                //     data: {
-                //         articleId: context.params.postId,
-                //         groupId: context.params.feedId
-                //     }
-                //   };
-        
-                // return admin.messaging().send(message).then((response) => {
-                //     // Response is a message ID string.
-                //     console.log('Successfully sent message:', response);
-                // })
+                
             });
         });
     });
