@@ -47,8 +47,6 @@ exports.receievedText = functions.https.onRequest((req, res) => {
     });
   });
 
-/// start cloud function
-
 exports.groupInvitationNotificationn = functions.database.ref('userPendingGroups/{userId}/{groupId}')
     .onCreate((snapshot, context) => {
     const topicId = "userPendingGroups-" + context.params.userId
@@ -78,13 +76,8 @@ exports.groupInvitationNotificationn = functions.database.ref('userPendingGroups
 
 exports.sendArticleNotificationToGroupMembers = functions.database.ref('feeds/{feedId}/{postId}')
     .onCreate((snapshot, context) => {
-    // const topicId = "feed-" + context.params.feedId
-    // console.log(topicId);
-    
     const feedId = context.params.feedId;
-    console.log(feedId);
     const senderId = snapshot.val().senderId;
-    console.log(senderId);
     return admin.firestore().collection("users").doc(senderId).get().then (function(doc) {
         return admin.firestore().collection("groups").doc(context.params.feedId).get().then (function(doc1) {
             return admin.database().ref("notifications").child("newArticle").child(feedId).once('value').then(notifications => {
@@ -114,40 +107,8 @@ exports.sendArticleNotificationToGroupMembers = functions.database.ref('feeds/{f
                 });
                 console.log(notifications.val());
                 return;
-                
             });
         });
-    });
-});
-exports.newArticleNotification = functions.database.ref('feeds/{feedId}/{postId}')
-    .onCreate((snapshot, context) => {
-    const topicId = "feed-" + context.params.feedId
-    console.log(topicId);
-
-    const senderId = snapshot.val().senderId
-    return admin.firestore().collection("users").doc(senderId).get().then (function(doc) {
-        return admin.firestore().collection("groups").doc(context.params.feedId).get().then (function(doc1) {
-            var message = {
-                notification: {
-                    title: 'New Article',
-                    body: doc.data().firstName +' shared an Article to your group ' + doc1.data().name
-                  },
-                topic: topicId,
-                data: {
-                    articleId: context.params.postId,
-                    groupId: context.params.feedId
-                }
-              };
-    
-            return admin.messaging().send(message).then((response) => {
-                // Response is a message ID string.
-                console.log('Successfully sent message:', response);
-            })
-        })
-        
-        
-    }).catch ((error) => {
-        console.log('Error sending message:', error);
     });
 });
 
@@ -159,22 +120,49 @@ exports.newCommentNotification = functions.database.ref('Comments/{feedId}/{post
     const senderId = snapshot.val().uid
     return admin.firestore().collection("users").doc(senderId).get().then (function(doc) {
         return admin.firestore().collection("groups").doc(context.params.feedId).get().then (function(doc1) {
-            var message = {
-                notification: {
-                    title: 'New Comment',
-                    body: doc.data().firstName +' posted a new comment on an Article in your group ' + doc1.data().name
-                  },
-                topic: topicId,
-                data: {
-                    articleId: context.params.postId,
-                    groupId: context.params.feedId
-                }
-              };
+            return admin.database().ref("notifications").child("newComment").child(context.params.feedId).once('value').then(notifications => {
+                notifications.forEach(user =>{ 
+                    if (user.key == senderId) {
+                        console.log("Ignoring sender Id")
+                        return;
+                    } else {
+                        var message = {
+                            notification: {
+                                title: 'New Comment',
+                                body: doc.data().firstName +' posted a new comment on an Article in your group ' + doc1.data().name
+                              },
+                            token: user.val(),
+                            data: {
+                                articleId: context.params.postId,
+                                groupId: context.params.feedId
+                            }
+                          };
+                
+                        return admin.messaging().send(message).then((response) => {
+                            // Response is a message ID string.
+                            console.log('Successfully sent message:', response);
+                        })
+                    }
+                    
+                });
+                return;
+            });
+            // var message = {
+            //     notification: {
+            //         title: 'New Comment',
+            //         body: doc.data().firstName +' posted a new comment on an Article in your group ' + doc1.data().name
+            //       },
+            //     topic: topicId,
+            //     data: {
+            //         articleId: context.params.postId,
+            //         groupId: context.params.feedId
+            //     }
+            //   };
     
-            return admin.messaging().send(message).then((response) => {
-                // Response is a message ID string.
-                console.log('Successfully sent message:', response);
-            })
+            // return admin.messaging().send(message).then((response) => {
+            //     // Response is a message ID string.
+            //     console.log('Successfully sent message:', response);
+            // })
         })
         
         
