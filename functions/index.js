@@ -61,7 +61,15 @@ exports.groupInvitationNotificationn = functions.database.ref('userPendingGroups
             topic: topicId,
             data: {
                 groupId: context.params.groupId
-            }
+            },
+            "apns": {
+                "payload": {
+                    "aps": {
+                        "badge":1,
+                        "sound": "default"
+                    }
+                }
+            },
           };
         
         return admin.messaging().send(message).then((response) => {
@@ -78,24 +86,33 @@ exports.sendArticleNotificationToGroupMembers = functions.database.ref('feeds/{f
     .onCreate((snapshot, context) => {
     const feedId = context.params.feedId;
     const senderId = snapshot.val().senderId;
+    console.log("Sender ID", senderId);
     return admin.firestore().collection("users").doc(senderId).get().then (function(doc) {
         return admin.firestore().collection("groups").doc(context.params.feedId).get().then (function(doc1) {
             return admin.database().ref("notifications").child("newArticle").child(feedId).once('value').then(notifications => {
                 notifications.forEach(user =>{ 
                     if (user.key == senderId) {
-                        console.log("Ignoring sender Id")
+                        console.log("Ignoring sender Id", user.key)
                         return;
                     } else {
                         var message = {
                             notification: {
                                 title: 'New Article',
-                                body: doc.data().firstName +' shared an Article to your group ' + doc1.data().name
+                                body: doc.data().firstName +' shared an Article to your group ' + doc1.data().name,
                               },
                             token: user.val(),
                             data: {
                                 articleId: context.params.postId,
                                 groupId: context.params.feedId
-                            }
+                            },
+                            "apns": {
+                                "payload": {
+                                    "aps": {
+                                        "badge":1,
+                                        "sound": "default"
+                                    }
+                                }
+                            },
                           };
                 
                         return admin.messaging().send(message).then((response) => {
@@ -114,28 +131,34 @@ exports.sendArticleNotificationToGroupMembers = functions.database.ref('feeds/{f
 
 exports.newCommentNotification = functions.database.ref('Comments/{feedId}/{postId}/{commentId}')
     .onCreate((snapshot, context) => {
-    const topicId = "comment-" + context.params.feedId
-    console.log(topicId);
-
     const senderId = snapshot.val().uid
+    console.log("SenderID", senderId);
     return admin.firestore().collection("users").doc(senderId).get().then (function(doc) {
         return admin.firestore().collection("groups").doc(context.params.feedId).get().then (function(doc1) {
             return admin.database().ref("notifications").child("newComment").child(context.params.feedId).once('value').then(notifications => {
                 notifications.forEach(user =>{ 
                     if (user.key == senderId) {
-                        console.log("Ignoring sender Id")
+                        console.log("Ignoring sender Id", user.key);
                         return;
                     } else {
                         var message = {
                             notification: {
                                 title: 'New Comment',
-                                body: doc.data().firstName +' posted a new comment on an Article in your group ' + doc1.data().name
+                                body: doc.data().firstName +' posted a new comment on an Article in your group ' + doc1.data().name,
                               },
                             token: user.val(),
                             data: {
                                 articleId: context.params.postId,
                                 groupId: context.params.feedId
-                            }
+                            },
+                            "apns": {
+                                "payload": {
+                                    "aps": {
+                                        "badge":1,
+                                        "sound": "default"
+                                    }
+                                }
+                            },
                           };
                 
                         return admin.messaging().send(message).then((response) => {
@@ -170,6 +193,61 @@ exports.newCommentNotification = functions.database.ref('Comments/{feedId}/{post
         console.log('Error sending message:', error);
     });
 });
+
+// Saves a message to the Firebase Realtime Database but sanitizes the text by removing swearwords.
+exports.deleteUser = functions.https.onCall((data, context) => {
+    const uid = context.auth.uid;
+    const userGroups = data.userGroups;
+    const userFriends = data.userFriends;
+    const uname = data.uname;
+    userGroups.forEach(group => {
+        //Delete member from group
+        return admin.firestore().collection("groups").doc(group).get()
+            .then(function (userGroup) {
+                //Remove Members
+                return admin.firestore().collection("groups").doc(group).update({
+                    members: admin.firestore.FieldValue.arrayRemove(uid)
+                })
+            })
+        // console.log(group);
+        // //Remove Group from User Groups
+        // return admin.database().ref("userGroups").child(uid).child(group).remove()
+        // .then(function(removed){
+        //     //Get Members
+        //     return admin.firestore().collection("groups").doc(group).get()
+        //     .then(function (userGroup) {
+        //         //Remove Members
+        //         return admin.firestore().collection("groups").doc(group).update({
+        //             members: firebase.firestore.FieldValue.arrayRemove(uid)
+        //         })
+        //     })
+        // })
+    })
+    //Remove friend connection
+    userFriends.forEach(friend => {
+        console.log(friend);
+        return admin.database().ref("friends").child(uid).child(friend).remove().then(function(friendRef){
+            return admin.database().ref("friends").child(friend).child(uid).remove()
+        })
+    })
+    //Get Phone
+    return admin.database().ref("phoneVerified").child(uid).once("value").then(function(phoneVerifiedRef) {
+        //Remove Phone
+        return admin.database().ref("verifyPhone").child(phoneVerifiedRef.val()).remove().then(function(removedVerify){
+            //Remove Phone
+            return admin.database().ref("phoneVerified").child(uid).remove().then(function(phoneRemoved){
+                return admin.auth().deleteUser(uid)
+                .then(function() {
+                    return admin.database().ref("unames").child(uname).remove().then(function() {
+                        console.log('Successfully deleted user');
+                    })
+                    
+                })
+            })
+        })
+    })
+    
+  });
 
 exports.notifyNewGroupUsers = functions.database
         .ref('newGroup/{groupId}/{userId}')
