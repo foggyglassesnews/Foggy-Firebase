@@ -194,6 +194,18 @@ exports.newCommentNotification = functions.database.ref('Comments/{feedId}/{post
     });
 });
 
+exports.skipVerification = functions.https.onCall((data, context) => {
+    const uid = context.auth.uid;
+    var userNumber = "+1-skip-" + uid;
+
+    var db = admin.database();
+    var userVerifyRef = db.ref("phoneVerified").child(uid);
+    var phoneVerifyRef = db.ref("verifyPhone").child(userNumber);
+    return userVerifyRef.set(userNumber).then(function () {
+        return phoneVerifyRef.set(uid)
+    });
+});
+
 // Saves a message to the Firebase Realtime Database but sanitizes the text by removing swearwords.
 exports.deleteUser = functions.https.onCall((data, context) => {
     const uid = context.auth.uid;
@@ -207,6 +219,10 @@ exports.deleteUser = functions.https.onCall((data, context) => {
                 //Remove Members
                 return admin.firestore().collection("groups").doc(group).update({
                     members: admin.firestore.FieldValue.arrayRemove(uid)
+                }).then(function(){
+                    return admin.database().ref("notifications").child("newArticle").child(group).child(uid).remove().then(function(){
+                        return admin.database().ref("notifications").child("newComment").child(group).child(uid).remove()
+                    })
                 })
             })
         // console.log(group);
