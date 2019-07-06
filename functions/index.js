@@ -1,5 +1,6 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+var FieldValue = require('firebase-admin').firestore.FieldValue;
 admin.initializeApp();
 
 const twilio = require('twilio');
@@ -14,6 +15,79 @@ const authToken  = functions.config().twilio.token;//firebaseConfig.twilio.token
 const client = new twilio(accountSid, authToken);
 
 const twilioNumber = '+15163094818' // your twilio phone number
+
+const NewsAPI = require('newsapi');
+const newsapi = new NewsAPI('0f3b142e5ce646219307fec8dc57a601');
+
+exports.testRecommend = functions.https.onCall((data, context) => {
+    const uid = context.auth.uid;
+     return getTopArticle(uid);
+});
+
+function getTopArticle(uid){
+    return newsapi.v2.topHeadlines({
+        language: 'en',
+        country: 'us',
+        pageSize: 1,
+    }).then(response => {
+        try{
+            if (response.articles.length > 0) {
+                let articleData = parseToJSON(response.articles[0])
+                return sendArticleToHomefeed(uid, articleData);
+            }
+        }
+        catch(err){
+            console.log(err)
+        }
+    }).catch(error => { console.log(error)});
+}
+
+function sendArticleToHomefeed(uid, article) {
+    let articleRef = admin.firestore().collection("articles").doc();
+    return articleRef.set(article).then(function(ref){
+        var date = new Date();
+        let miliseconds = date.getTime() / 1000.0;
+       let newPost = {
+           senderId: "foggy-glasses",
+           timestamp: miliseconds,
+           groupId: "",
+           postUpdate: miliseconds,
+           articleId: articleRef.id,
+           curated: true
+       }
+       return admin.database().ref('homeFeed/' + uid).push().set(newPost).then(function(r){
+            console.log("Wrote to DB!");
+       })
+    })
+}
+
+function parseToJSON (article){
+    let parseArticle = article
+    let newArticle = {
+        title: parseArticle.title,
+        description: parseArticle.description,
+        url: parseArticle.url,
+        canonicalUrl: getCanonUrl(parseArticle.url),
+        imageUrlString: parseArticle.urlToImage,
+        shareUserId: "foggy-glasses", //not sure what we want for userID         
+    }
+    return newArticle
+}
+
+function getCanonUrl (url){
+    var parseUrl = url
+    parseUrl = parseUrl.replace("http://", "");
+    parseUrl = parseUrl.replace("https://","");
+    parseUrl = parseUrl.replace("file://", "");
+    parseUrl = parseUrl.replace("ftp://", "");
+    let canonUrl = parseUrl.split("/");
+    if (canonUrl.length > 0) {
+       return canonUrl[0]
+    }
+    else{
+        return ""
+    }
+}
 
 exports.receievedText = functions.https.onRequest((req, res) => {
     // ...
@@ -194,6 +268,34 @@ exports.newCommentNotification = functions.database.ref('Comments/{feedId}/{post
     });
 });
 
+exports.savedArticle = functions.database.ref('saved/{userId}/{savedPost}')
+    .onCreate((snapshot, context) => {
+    const topicId = "savedArticles-" + context.params.userId
+    console.log(topicId);
+    var message = {
+        notification: {
+            title: 'Successfully Saved Post'
+          },
+        topic: topicId,
+        "apns": {
+            "payload": {
+                "aps": {
+                    "badge":1,
+                    "sound": "default"
+                }
+            }
+        },
+      };
+    
+    return admin.messaging().send(message).then((response) => {
+    // Response is a message ID string.
+    console.log('Successfully sent message:', response);
+    })
+    .catch((error) => {
+      console.log('Error sending message:', error);
+    });
+});
+
 exports.skipVerification = functions.https.onCall((data, context) => {
     const uid = context.auth.uid;
     var userNumber = "+1-skip-" + uid;
@@ -265,26 +367,36 @@ exports.deleteUser = functions.https.onCall((data, context) => {
     
   });
 
+exports.shareArticle = functions.https.onCall((data, context)=> {
+    const uid = context.auth.uid;
+    const groups = data.groups;
+    const link = data.url;
+    return true;
+});
+
+exports.saveArticle = functions.https.onCall((data, context)=> {
+    const uid = context.auth.uid;
+    const link = data.url;
+    return true;
+});
+
 exports.notifyNewGroupUsers = functions.database
         .ref('newGroup/{groupId}/{userId}')
         .onCreate(snapshot => {
             const user = snapshot.val()
             console.log(user)
-            const inviter      = user.inviter
+            const inviter      = user.invitedBy;
             const phoneNumber = user.phoneNumber
             const dynamicLinkId = user.dynamicLink
 
-            // if ( ! validE164(phoneNumber) ) {
-            //     throw new Error('number must be E164 format!')
-            // }
-
-            const textMessage = {
-                body: `You've been invited to join a Foggy Glasses Group! https://foggyglassesnews.page.link/` + dynamicLinkId,
-                to: phoneNumber,  // Text to this number
-                from: twilioNumber // From a valid Twilio number
-            }
-
-            return client.messages.create(textMessage)
+            return admin.firestore().collection("users").doc(inviter).get().then (function(doc) {
+                const textMessage = {
+                    body: doc.data().firstName + " " + doc.data().lastName + ` invited to join a Foggy Glasses Group! https://foggyglassesnews.page.link/` + dynamicLinkId,
+                    to: phoneNumber,  // Text to this number
+                    from: twilioNumber // From a valid Twilio number
+                }
+                return client.messages.create(textMessage)
+            })
         })
         // .onWrite(snapshot => snapshot.val())
         // .then(user => {
