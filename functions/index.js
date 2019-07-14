@@ -19,7 +19,123 @@ const twilioNumber = '+15163094818' // your twilio phone number
 const NewsAPI = require('newsapi');
 const newsapi = new NewsAPI('0f3b142e5ce646219307fec8dc57a601');
 
-exports.scheduledRecommend = functions.pubsub.schedule('5 12 * * *').onRun((context) => {
+exports.scheduledRecommend = functions.pubsub.schedule('5 9 * * *').onRun((context) => {
+    return newsapi.v2.topHeadlines({
+        language: 'en',
+        country: 'us',
+        pageSize: 1,
+    }).then(response => {
+        try{
+            if (response.articles.length > 0) {
+                let article = parseToJSON(response.articles[0])
+                let articleRef = admin.firestore().collection("articles").doc();
+
+                return articleRef.set(article).then(function(ref){
+                    // return admin.firestore().collection("groups").get().then(function(allGroups){
+                        var groups = ["384UDBNN55hhX2utcWy6", "EHJwWUv8GobCumXwIA0S", "GJUx9cfnda8su03HGvBG", "IcVkCTYBZ3QmZgaoEZqB",
+                    "LpSVzWjhnivrdwZKdeGu", "WAMTraRQQm7MtMkYJ07j", "azqkezjBcU6WFbjedcnt", "iKNcqsk30QUdZZCPNX7Y", "jMtJKI0wLorChBBzWTuu", "oEN3x6fW6kLIhio0PM4V"];
+                        // allGroups.forEach(g => {
+                        //     groups.push(g.id);
+                        // });
+                        
+                        groups.forEach(group => {
+                            return writeToGroupFeed(group, articleRef.id)
+                        })
+                        return admin.database().ref("tks").once('value').then(function(users){
+                            users.forEach(user => {
+                                admin.database().ref("userGroups").child(user.key).once('value').then(function(userGroups) {
+                                    var groupData = {};
+                                    userGroups.forEach(g => {
+                                        groupData[g.key] = " ";
+                                    });
+                                    var date = new Date();
+                                    let miliseconds = date.getTime() / 1000.0;
+                                    var newPost = {
+                                        articleId : articleRef.id,
+                                        data : groupData,
+                                        multiGroup: true,
+                                        senderId : "zKTNvCYzLdT0zZKx5heS4zoYfsl2",
+                                        timestamp : miliseconds,
+                                        curated: true
+                                    }
+                                    admin.database().ref('homeFeed/' + user.key).push().set(newPost).then(function(r){
+                                        console.log("Sent one to ", user.key)
+                                        return sendNotification(user.val(), "New Curated Article", "Foggy Glasses News curated a new Article for you!", articleRef.id, "Curated");
+                                    })
+                                });
+                                
+                            })
+                        });
+                    // });
+                    
+                });
+            }
+        }
+        catch(err){
+            console.log(err)
+        }
+    }).catch(error => { console.log(error)});
+});
+
+exports.scheduledRecommend2 = functions.pubsub.schedule('5 15 * * *').onRun((context) => {
+    return newsapi.v2.topHeadlines({
+        language: 'en',
+        country: 'us',
+        pageSize: 1,
+    }).then(response => {
+        try{
+            if (response.articles.length > 0) {
+                let article = parseToJSON(response.articles[0])
+                let articleRef = admin.firestore().collection("articles").doc();
+
+                return articleRef.set(article).then(function(ref){
+                    // return admin.firestore().collection("groups").get().then(function(allGroups){
+                        var groups = ["384UDBNN55hhX2utcWy6", "EHJwWUv8GobCumXwIA0S", "GJUx9cfnda8su03HGvBG", "IcVkCTYBZ3QmZgaoEZqB",
+                    "LpSVzWjhnivrdwZKdeGu", "WAMTraRQQm7MtMkYJ07j", "azqkezjBcU6WFbjedcnt", "iKNcqsk30QUdZZCPNX7Y", "jMtJKI0wLorChBBzWTuu", "oEN3x6fW6kLIhio0PM4V"];
+                        // allGroups.forEach(g => {
+                        //     groups.push(g.id);
+                        // });
+                        
+                        groups.forEach(group => {
+                            return writeToGroupFeed(group, articleRef.id)
+                        })
+                        return admin.database().ref("tks").once('value').then(function(users){
+                            users.forEach(user => {
+                                admin.database().ref("userGroups").child(user.key).once('value').then(function(userGroups) {
+                                    var groupData = {};
+                                    userGroups.forEach(g => {
+                                        groupData[g.key] = " ";
+                                    });
+                                    var date = new Date();
+                                    let miliseconds = date.getTime() / 1000.0;
+                                    var newPost = {
+                                        articleId : articleRef.id,
+                                        data : groupData,
+                                        multiGroup: true,
+                                        senderId : "zKTNvCYzLdT0zZKx5heS4zoYfsl2",
+                                        timestamp : miliseconds,
+                                        curated: true
+                                    }
+                                    admin.database().ref('homeFeed/' + user.key).push().set(newPost).then(function(r){
+                                        console.log("Sent one to ", user.key)
+                                        return sendNotification(user.val(), "New Curated Article", "Foggy Glasses News curated a new Article for you!", articleRef.id, "Curated");
+                                    })
+                                });
+                                
+                            })
+                        });
+                    // });
+                    
+                });
+            }
+        }
+        catch(err){
+            console.log(err)
+        }
+    }).catch(error => { console.log(error)});
+});
+
+exports.testRecommend = functions.https.onCall((data, context) => {
     console.log("SCHEDULED");
     return;
     return newsapi.v2.topHeadlines({
@@ -58,77 +174,21 @@ exports.scheduledRecommend = functions.pubsub.schedule('5 12 * * *').onRun((cont
             console.log(err)
         }
     }).catch(error => { console.log(error)});
-});
-
-exports.testRecommend = functions.https.onCall((data, context) => {
     return;
-    return newsapi.v2.topHeadlines({
-        language: 'en',
-        country: 'us',
-        pageSize: 1,
-    }).then(response => {
-        try{
-            if (response.articles.length > 0) {
-                let article = parseToJSON(response.articles[0])
-                let articleRef = admin.firestore().collection("articles").doc();
-
-                return articleRef.set(article).then(function(ref){
-                    return admin.firestore().collection("groups").get().then(function(allGroups){
-                        var groups = [];
-                        allGroups.forEach(g => {
-                            groups.push(g.id);
-                        });
-                        
-                        groups.forEach(group => {
-                            return writeToGroupFeed(group, articleRef.id)
-                        })
-                        return admin.database().ref("tks").once('value').then(function(users){
-                            users.forEach(user => {
-                                admin.database().ref("userGroups").child(user.key).once('value').then(function(userGroups) {
-                                    var groupData = {};
-                                    userGroups.forEach(g => {
-                                        groupData[g.key] = " ";
-                                    });
-                                    var date = new Date();
-                                    let miliseconds = date.getTime() / 1000.0;
-                                    var newPost = {
-                                        articleId : articleRef.id,
-                                        data : groupData,
-                                        multiGroup: true,
-                                        senderId : "zKTNvCYzLdT0zZKx5heS4zoYfsl2",
-                                        timestamp : miliseconds,
-                                        curated: true
-                                    }
-                                    admin.database().ref('homeFeed/' + user.key).push().set(newPost).then(function(r){
-                                        console.log("Sent one to ", user.key)
-                                        return sendNotification(user.val(), "New Curated Article", "Foggy Glasses News curated a new Article for you!");
-                                    })
-                                });
-                                
-                            })
-                        });
-                    });
-                    
-                });
-            }
-        }
-        catch(err){
-            console.log(err)
-        }
-    }).catch(error => { console.log(error)});
+    
     return getTopArticle("hLHHYmw8gifpk7Z9kJKxrigpLvB3");
 });
 
 function writeToGroupFeed(feedId, articleId){
     var date = new Date();
-    let miliseconds = date.getTime() / 1000.0;
+    let miliseconds = date.getTime() / 1000.000;
     
     var data = {senderId: "zKTNvCYzLdT0zZKx5heS4zoYfsl2",
                 timestamp: miliseconds,
                 groupId: feedId,
                 commentCount: 0,
                 postUpdate: miliseconds,
-                commentUpdate: miliseconds,
+                commentUpdate: 0,
                 articleId: articleId,
                 curated: true}
     return admin.database().ref('feeds/' + feedId).push().set(data).then(function(r){
@@ -200,13 +260,17 @@ function getTopArticle(uid){
     }).catch(error => { console.log(error)});
 }
 
-function sendNotification(token, title, body) {
+function sendNotification(token, title, body, articleId, groupId) {
     var message = {
         notification: {
             title: title,
             body: body,
           },
         token: token,
+        data: {
+            articleId: articleId,
+            groupId: groupId
+        },
         "apns": {
             "payload": {
                 "aps": {
