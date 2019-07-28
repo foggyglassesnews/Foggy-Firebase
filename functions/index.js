@@ -5,7 +5,6 @@ admin.initializeApp();
 
 const twilio = require('twilio');
 const MessagingResponse = require('twilio').twiml.MessagingResponse;
-// const bodyParser = require('body-parser');
 
 const firebaseConfig = JSON.parse(process.env.FIREBASE_CONFIG);
 const accountSid = functions.config().twilio.sid;//firebaseConfig.twilio.sid;
@@ -19,165 +18,360 @@ const twilioNumber = '+15163094818' // your twilio phone number
 const NewsAPI = require('newsapi');
 const newsapi = new NewsAPI('0f3b142e5ce646219307fec8dc57a601');
 
-exports.scheduledRecommend = functions.pubsub.schedule('5 9 * * *').onRun((context) => {
-    return newsapi.v2.topHeadlines({
-        language: 'en',
-        country: 'us',
-        pageSize: 1,
-    }).then(response => {
-        try{
-            if (response.articles.length > 0) {
-                let article = parseToJSON(response.articles[0])
-                let articleRef = admin.firestore().collection("articles").doc();
-
-                return articleRef.set(article).then(function(ref){
-                    // return admin.firestore().collection("groups").get().then(function(allGroups){
-                        var groups = ["384UDBNN55hhX2utcWy6", "EHJwWUv8GobCumXwIA0S", "GJUx9cfnda8su03HGvBG", "IcVkCTYBZ3QmZgaoEZqB",
-                    "LpSVzWjhnivrdwZKdeGu", "WAMTraRQQm7MtMkYJ07j", "azqkezjBcU6WFbjedcnt", "iKNcqsk30QUdZZCPNX7Y", "jMtJKI0wLorChBBzWTuu", "oEN3x6fW6kLIhio0PM4V"];
-                        // allGroups.forEach(g => {
-                        //     groups.push(g.id);
-                        // });
-                        
-                        groups.forEach(group => {
-                            return writeToGroupFeed(group, articleRef.id)
-                        })
-                        return admin.database().ref("tks").once('value').then(function(users){
-                            users.forEach(user => {
-                                admin.database().ref("userGroups").child(user.key).once('value').then(function(userGroups) {
-                                    var groupData = {};
-                                    userGroups.forEach(g => {
-                                        groupData[g.key] = " ";
-                                    });
-                                    var date = new Date();
-                                    let miliseconds = date.getTime() / 1000.0;
-                                    var newPost = {
-                                        articleId : articleRef.id,
-                                        data : groupData,
-                                        multiGroup: true,
-                                        senderId : "zKTNvCYzLdT0zZKx5heS4zoYfsl2",
-                                        timestamp : miliseconds,
-                                        curated: true
-                                    }
-                                    admin.database().ref('homeFeed/' + user.key).push().set(newPost).then(function(r){
-                                        console.log("Sent one to ", user.key)
-                                        return sendNotification(user.val(), "New Curated Article", "Foggy Glasses News curated a new Article for you!", articleRef.id, "Curated");
-                                    })
-                                });
-                                
-                            })
-                        });
-                    // });
-                    
-                });
-            }
-        }
-        catch(err){
-            console.log(err)
-        }
-    }).catch(error => { console.log(error)});
+exports.scheduledRecommend7AM = functions.pubsub.schedule('0 7 * * *')
+.timeZone('America/New_York').onRun((context) => {
+    console.log('7am')
+    return sendArticlesAtTime('7:00').then(function(value){
+        console.log('end:', value)
+    });
 });
 
-exports.scheduledRecommend2 = functions.pubsub.schedule('5 15 * * *').onRun((context) => {
-    return newsapi.v2.topHeadlines({
-        language: 'en',
-        country: 'us',
-        pageSize: 1,
-    }).then(response => {
-        try{
-            if (response.articles.length > 0) {
-                let article = parseToJSON(response.articles[0])
-                let articleRef = admin.firestore().collection("articles").doc();
-
-                return articleRef.set(article).then(function(ref){
-                    // return admin.firestore().collection("groups").get().then(function(allGroups){
-                        var groups = ["384UDBNN55hhX2utcWy6", "EHJwWUv8GobCumXwIA0S", "GJUx9cfnda8su03HGvBG", "IcVkCTYBZ3QmZgaoEZqB",
-                    "LpSVzWjhnivrdwZKdeGu", "WAMTraRQQm7MtMkYJ07j", "azqkezjBcU6WFbjedcnt", "iKNcqsk30QUdZZCPNX7Y", "jMtJKI0wLorChBBzWTuu", "oEN3x6fW6kLIhio0PM4V"];
-                        // allGroups.forEach(g => {
-                        //     groups.push(g.id);
-                        // });
-                        
-                        groups.forEach(group => {
-                            return writeToGroupFeed(group, articleRef.id)
-                        })
-                        return admin.database().ref("tks").once('value').then(function(users){
-                            users.forEach(user => {
-                                admin.database().ref("userGroups").child(user.key).once('value').then(function(userGroups) {
-                                    var groupData = {};
-                                    userGroups.forEach(g => {
-                                        groupData[g.key] = " ";
-                                    });
-                                    var date = new Date();
-                                    let miliseconds = date.getTime() / 1000.0;
-                                    var newPost = {
-                                        articleId : articleRef.id,
-                                        data : groupData,
-                                        multiGroup: true,
-                                        senderId : "zKTNvCYzLdT0zZKx5heS4zoYfsl2",
-                                        timestamp : miliseconds,
-                                        curated: true
-                                    }
-                                    admin.database().ref('homeFeed/' + user.key).push().set(newPost).then(function(r){
-                                        console.log("Sent one to ", user.key)
-                                        return sendNotification(user.val(), "New Curated Article", "Foggy Glasses News curated a new Article for you!", articleRef.id, "Curated");
-                                    })
-                                });
-                                
-                            })
-                        });
-                    // });
-                    
-                });
-            }
-        }
-        catch(err){
-            console.log(err)
-        }
-    }).catch(error => { console.log(error)});
+exports.scheduledRecommend12PM = functions.pubsub.schedule('0 12 * * *').timeZone('America/New_York').onRun((context) => {
+    console.log('12pm')
+    return sendArticlesAtTime('12:00').then(function(value){
+        console.log('end:', value)
+    });
 });
 
-exports.testRecommend = functions.https.onCall((data, context) => {
-    console.log("SCHEDULED");
-    return;
-    return newsapi.v2.topHeadlines({
-        language: 'en',
-        country: 'us',
-        pageSize: 1,
-    }).then(response => {
-        try{
-            if (response.articles.length > 0) {
-                let article = parseToJSON(response.articles[0])
-                let articleRef = admin.firestore().collection("articles").doc();
-                return articleRef.set(article).then(function(ref){
-                    return admin.database().ref("tks").once('value').then(function(users){
-                        users.forEach(user => {
-                            console.log("User", user.key, user.val());
-                            var date = new Date();
-                            let miliseconds = date.getTime() / 1000.0;
-                            let newPost = {
-                                senderId: "foggy-glasses",
-                                timestamp: miliseconds,
-                                groupId: "",
-                                postUpdate: miliseconds,
-                                articleId: articleRef.id,
-                                curated: true
-                            }
-                            admin.database().ref('homeFeed/' + user.key).push().set(newPost).then(function(r){
-                                console.log("Sent one to ", user.key)
-                                return sendNotification(user.val(), "New Curated Article", "Foggy Glasses News curated a new Article for you!");
-                            })
-                        })
-                    });
-                }) 
-            }
-        }
-        catch(err){
-            console.log(err)
-        }
-    }).catch(error => { console.log(error)});
-    return;
+exports.scheduledRecommend6PM = functions.pubsub.schedule('0 18 * * *').timeZone('America/New_York').onRun((context) => {
+    console.log('6pm')
+    return sendArticlesAtTime('18:00').then(function(value){
+        console.log('end:', value)
+    });
+});
+
+exports.scheduledRecommend9PM = functions.pubsub.schedule('0 21 * * *').timeZone('America/New_York').onRun((context) => {
+    console.log('9pm')
+    return sendArticlesAtTime('21:00').then(function(value){
+        console.log('end:', value)
+    });
+});
+
+//Dictionary userArticles = [UserId: [GroupFeedPost]]
+//For each group get all users store them checking for duplicates
+//After we writeToGroupFeed() store GroupFeedPost with Users in that group
+//Consolidate notificaitions based of userArticles if GroupFeedPosts is multi or not
+//Send notification
+// var groupData = {};
+// userGroups.forEach(g => {
+//     groupData[g.key] = " ";
+// });
+// var date = new Date();
+// let miliseconds = date.getTime() / 1000.0;
+// var newPost = {
+//     articleId : articleRef.id,
+//     data : groupData,
+//     multiGroup: true,
+//     senderId : "zKTNvCYzLdT0zZKx5heS4zoYfsl2",
+//     timestamp : miliseconds,
+//     curated: true
+// }
+// admin.database().ref('homeFeed/' + user.key).push().set(newPost).then(function(r){
+//     console.log("Sent one to ", user.key)
+//     sendCuratedNotification(user.val(), "New Curated Article", "Foggy Glasses News curated a new Article for you!");
+// })
+
+
+
+//uses News API to get dictionary arrays of articles for each category
+//each array is accessed with a key corresponding to the name of the category
+function fetchArticles (){
+    return new Promise (function getCategoryArticles(resolve, reject) {
+        let articlesPerCategory = 10
+        var articlesDict = new Object()
+        //ALL CATEGORIES
+        // let allCategories = [ 
+        //     "US News", "World News", "Technology", "Health", "Entertainment", "Sports", "Science", "Finance", "Crypto", "Gaming", "Trending",
+        // ]
     
-    return getTopArticle("hLHHYmw8gifpk7Z9kJKxrigpLvB3");
-});
+        //TRENDING
+        let promise1 = newsapi.v2.topHeadlines({
+            language: 'en',
+            country: 'us',
+            pages:1,
+            pageSize: articlesPerCategory,
+        }).then(response => {
+            var articleArray = []
+            for (i = 0; i < articlesPerCategory; i++){
+                let article = parseToJSON(response.articles[i])
+                articleArray.push(article)
+            }
+            articlesDict["Trending"] = articleArray
+        });
+        //US NEWS
+        let promise2 = newsapi.v2.everything({
+            q: 'US news',
+            language: 'en',
+            pages:1,
+            pageSize: articlesPerCategory,
+        }).then(response => {
+            var articleArray = []
+            for (i = 0; i < articlesPerCategory; i++){
+                let article = parseToJSON(response.articles[i])
+                articleArray.push(article)
+            }
+            articlesDict["US News"] = articleArray
+        });
+        //WORLD NEWS
+        let promise3 = newsapi.v2.everything({
+            q: 'world news',
+            language: 'en',
+            pages:1,
+            pageSize: articlesPerCategory,
+        }).then(response => {
+            var articleArray = []
+            for (i = 0; i < articlesPerCategory; i++){
+                let article = parseToJSON(response.articles[i])
+                articleArray.push(article)
+            }
+            articlesDict["World News"] = articleArray
+        });
+        //FINANCE
+        let promise4 = newsapi.v2.topHeadlines({
+            category: 'business',
+            language: 'en',
+            country: 'us',
+            pages:1,
+            pageSize: articlesPerCategory,
+        }).then(response => {
+            var articleArray = []
+            for (i = 0; i < articlesPerCategory; i++){
+                let article = parseToJSON(response.articles[i])
+                articleArray.push(article)
+            }
+            articlesDict["Finance"] = articleArray
+        });
+        //ENTERTAINMENT
+        let promise5 = newsapi.v2.topHeadlines({
+            category: 'entertainment',
+            language: 'en',
+            country: 'us',
+            pages:1,
+            pageSize: articlesPerCategory,
+        }).then(response => {
+            var articleArray = []
+            for (i = 0; i < articlesPerCategory; i++){
+                let article = parseToJSON(response.articles[i])
+                articleArray.push(article)
+            }
+            articlesDict["Entertainment"] = articleArray
+        });
+        //HEALTH
+        let promise6 = newsapi.v2.topHeadlines({
+            category: 'health',
+            language: 'en',
+            country: 'us',
+            pages:1,
+            pageSize: articlesPerCategory,
+        }).then(response => {
+            var articleArray = []
+            for (i = 0; i < articlesPerCategory; i++){
+                let article = parseToJSON(response.articles[i])
+                articleArray.push(article)
+            }
+            articlesDict["Health"] = articleArray
+        });
+        //SCIENCE
+        let promise7= newsapi.v2.topHeadlines({
+            category: 'science',
+            language: 'en',
+            country: 'us',
+            pages:1,
+            pageSize: articlesPerCategory,
+        }).then(response => {
+            var articleArray = []
+            for (i = 0; i < articlesPerCategory; i++){
+                let article = parseToJSON(response.articles[i])
+                articleArray.push(article)
+            }
+            articlesDict["Science"] = articleArray
+        });
+        //SPORTS
+        let promise8 = newsapi.v2.topHeadlines({
+            category: 'sports',
+            language: 'en',
+            country: 'us',
+            pages:1,
+            pageSize: articlesPerCategory,
+        }).then(response => {
+            var articleArray = []
+            for (i = 0; i < articlesPerCategory; i++){
+                let article = parseToJSON(response.articles[i])
+                articleArray.push(article)
+            }
+            articlesDict["Sports"] = articleArray
+        });
+        //TECHNOLOGY
+        let promise9 = newsapi.v2.topHeadlines({
+            category: 'technology',
+            language: 'en',
+            country: 'us',
+            pages:1,
+            pageSize: articlesPerCategory,
+        }).then(response => {
+            var articleArray = []
+            for (i = 0; i < articlesPerCategory; i++){
+                let article = parseToJSON(response.articles[i])
+                articleArray.push(article)
+            }
+            articlesDict["Technology"] = articleArray
+        });
+        //GAMING
+        let promise10 = newsapi.v2.everything({
+            q: 'video games',
+            language: 'en',
+            pages:1,
+            pageSize: articlesPerCategory,
+        }).then(response => {
+            var articleArray = []
+            for (i = 0; i < articlesPerCategory; i++){
+                let article = parseToJSON(response.articles[i])
+                articleArray.push(article)
+            }
+            articlesDict["Gaming"] = articleArray
+        });
+        //CRYPTO
+        let promise11 = newsapi.v2.everything({
+            q: 'crypto currency',
+            language: 'en',
+            pages:1,
+            pageSize: articlesPerCategory,
+        }).then(response => {
+            var articleArray = []
+            for (i = 0; i < articlesPerCategory; i++){
+                let article = parseToJSON(response.articles[i])
+                articleArray.push(article)
+            }        
+            articlesDict["Crypto"] = articleArray
+        });
+        Promise.all([promise1, promise2, promise3, promise4, promise5, promise6, promise7, promise8, promise9, promise10, promise11, ]).then(function()  {
+            resolve(articlesDict)
+          }); 
+    });
+}
+//receives a time as a string in military time, sends appropriate articles to groups that have opted...
+//...in to that time for curation
+//(times: '7;00', '12:00', '18:00', '21:00' )
+function sendArticlesAtTime(time){
+    return new Promise(function fetchAndSend (resolve){
+        fetchArticles().then(function(value){
+            // dictionary of all fetched articles
+            let allFetchedArticles = value
+            admin.database().ref('/times/' + time).once('value').then(function(snapshot) {
+                //get all groups for the chosen time
+                var timeGroups = (snapshot.val()) || '';
+                var groupIds = []
+                // make sure the group has not opted out of the time 
+                for (i in timeGroups){
+                    if (timeGroups[i] != 0){
+                        groupIds.push(i)
+                    }
+                }
+                console.log(groupIds)
+                //send articles to all valid groups
+                for (i in groupIds) {
+                    let gId = groupIds[i]
+                    let groupRef = admin.firestore().collection('groups').doc(gId);
+                    groupRef.get().then(doc => {
+                        if (!doc.exists) {
+                        console.log('No document!');
+                        } else {
+
+                            //get the groups curation prefrences
+                            var curationCategories =  []
+                            var recentlyCuratedUrls = []
+                            curationCategories =  doc.data()["curationCategories"]
+                            recentlyCuratedUrls = doc.data()["recentlyCuratedUrls"] || []
+
+                            //curates an article for each category the group has selected
+                            for (var keyIndex in curationCategories){
+                                
+                                let key = curationCategories[keyIndex]
+                                let articlesOfCategory = allFetchedArticles[key]
+                                for (var articleIndex in articlesOfCategory){
+                                    let checkArticle = articlesOfCategory[articleIndex]
+                                    let checkURL = checkArticle.url
+                                    //check if the url of the chosen article is already in the array of recently curated articles
+                                    //uses a basic string comparison, we might want a more robust way to compare the urls but really..
+                                    //...the api should always send the urls in the same format so it shouldnt be an issue
+                                    if (recentlyCuratedUrls.find(function(element) { return element == checkURL; })){
+                                        //article has already been curated, move on to next artilcle
+                                    }
+                                    else{
+                                        //article has not been sent recently and can be sent to the group
+            
+                                        let articleRef = admin.firestore().collection("articles").doc(); 
+                                        articleRef.set(checkArticle).then(function(ref){
+
+                                            // add the article to recent urls
+                                            recentlyCuratedUrls = addToEnd(recentlyCuratedUrls, checkURL)
+                                            admin.firestore().collection('groups').doc(gId).update({"recentlyCuratedUrls" : recentlyCuratedUrls})
+            
+                                            console.log("SENDING ARTICLE ----- Group: ", gId, "Key: ", key, "Article URL: ", checkArticle.url)
+                                            writeToGroupFeed(gId, articleRef.id)
+                                
+                                        });
+                                        break
+                                    }
+                                }
+                            }
+                            resolve("complete");
+                        }
+                    })
+                    .catch(err => {
+                        console.log('Error getting document', err);
+                    });
+                }     
+            });
+        });    
+    });   
+}
+//makes an array to act like a queue
+//used to store recently curated urls but remove older values
+function addToEnd(array, valueToAdd){
+    //hard coded max size of the bootleg queue
+    const maxLength = 15
+    var processArray = array
+    if (processArray.length < maxLength){
+        processArray.push(valueToAdd)
+    }
+    else {
+        for (var i = 0; i < processArray.length; i++){
+            if (i < (processArray.length - 1)){
+                let index = (i+1)
+                processArray[i] = processArray[index]
+            }
+            else{
+                processArray[i] = valueToAdd
+            }
+        }
+    }
+    return processArray
+}
+//populates the realtime database with group data
+//takes every existing group and assigns them default curation times (they can opt out from within the app later)
+//this function should be called only once before we launch the curation functions so the database has groups to send to
+//this function could also be used in the future if we want to add additonal curation times
+function assignGroupTimes (){
+    let groupRef = admin.firestore().collection('groups')
+    let allGroups = groupRef.get()
+    .then(snapshot => {
+        snapshot.forEach(doc => {
+            let gId = doc.id
+            let group = admin.firestore().collection('groups').doc(doc.id)
+            group.update({'curationTimes' : ["7:00, 12:00, 18:00, 21:00"]})
+            var groupTime = {};
+            groupTime[gId] = 1
+            admin.database().ref().child('/times/7:00').update(groupTime);
+            admin.database().ref().child('/times/12:00').update(groupTime);
+            admin.database().ref().child('/times/18:00').update(groupTime);
+            admin.database().ref().child('/times/21:00').update(groupTime);
+        });
+    })
+    .catch(err => {
+        console.log('Error getting documents', err);
+    });
+}
 
 function writeToGroupFeed(feedId, articleId){
     var date = new Date();
@@ -194,70 +388,6 @@ function writeToGroupFeed(feedId, articleId){
     return admin.database().ref('feeds/' + feedId).push().set(data).then(function(r){
         
     });
-}
-
-// function sendMultiGroup() {
-//     var data = {
-//         articleId : "E3kdnnSCyrjXhdxgxCbf",
-//         data = {
-//           IPNcpF4DS1LRya0mI5r3 : "-LjBrCtyV3_rndLzSlWu",
-//           UfWVKy6AZtStmFda5AuT : "-LjBrCu-O3BpIz8Oo2Y-",
-//           rGyx2Mpo3WonlBrMXGaO : "-LjBrCu1L2JynFIwb-7y"
-//         },
-//         multiGroup:true,
-//         senderId : "hLHHYmw8gifpk7Z9kJKxrigpLvB3",
-//         timestamp : 1.562510155526249E9
-//     }
-// }
-
-function getTopArticle(uid){
-    return newsapi.v2.topHeadlines({
-        language: 'en',
-        country: 'us',
-        pageSize: 1,
-    }).then(response => {
-        try{
-            if (response.articles.length > 0) {
-                let article = parseToJSON(response.articles[0])
-                let articleRef = admin.firestore().collection("articles").doc();
-                return articleRef.set(article).then(function(ref){
-                    var date = new Date();
-                    let miliseconds = date.getTime() / 1000.0;
-                    // let newPost = {
-                    //     senderId: "foggy-glasses",
-                    //     timestamp: miliseconds,
-                    //     groupId: "",
-                    //     postUpdate: miliseconds,
-                    //     articleId: articleRef.id,
-                    //     curated: true
-                    // }
-                    var newPost = {
-                        articleId : articleRef.id,
-                        data : {
-                          IPNcpF4DS1LRya0mI5r3 : "",
-                          UfWVKy6AZtStmFda5AuT : "",
-                          rGyx2Mpo3WonlBrMXGaO : ""
-                        },
-                        multiGroup: true,
-                        senderId : "zKTNvCYzLdT0zZKx5heS4zoYfsl2",
-                        timestamp : miliseconds,
-                        curated: true
-                    }
-                    return admin.database().ref('homeFeed/' + uid).push().set(newPost).then(function(r){
-                        return admin.database().ref("tks").child(uid).once("value").then(function(snapshot) {
-                            const token = snapshot.val();
-                            const title = "New Curated Article";
-                            const body = "Foggy Glasses News recommended a new Article for you"
-                            return sendNotification(token, title, body);
-                        })
-                    })
-                })
-            }
-        }
-        catch(err){
-            console.log(err)
-        }
-    }).catch(error => { console.log(error)});
 }
 
 function sendNotification(token, title, body, articleId, groupId) {
