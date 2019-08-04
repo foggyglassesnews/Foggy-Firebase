@@ -29,7 +29,7 @@ exports.scheduledRecommend7AM = functions.pubsub.schedule('55 6 * * *')
     });
 });
 
-exports.scheduledRecommend12PM = functions.pubsub.schedule('55 6 * * *').timeZone('America/New_York').onRun((context) => {
+exports.scheduledRecommend12PM = functions.pubsub.schedule('55 11 * * *').timeZone('America/New_York').onRun((context) => {
     console.log('12pm')
     return sendArticlesAtTime('12:00', false).then(function(value){
         console.log('end:', value)
@@ -372,7 +372,7 @@ function sendArticlesAtTime(time, sendTrending = false){
                 //only send notification if not already sending one too all users
                 if (!sendTrending){
                     admin.database().ref('/tks/' + userID).once('value').then(function(tok){
-                        sendNotification(tok.val(), "New Curated Article", "New Articles have been Curated for you",  '', "Curated");
+                        sendNotification(tok.val(), "New Curated Article", "Foggy Glasses News curated a new Article for you!",  '', "Curated");
                     })
                 }
                 
