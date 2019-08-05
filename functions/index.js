@@ -24,28 +24,28 @@ const newsapi = new NewsAPI('0f3b142e5ce646219307fec8dc57a601');
 exports.scheduledRecommend7AM = functions.pubsub.schedule('55 6 * * *')
 .timeZone('America/New_York').onRun((context) => {
     console.log('7am')
-    return sendArticlesAtTime('7:00', false).then(function(value){
+    return sendArticlesAtTime('7:00', true).then(function(value){
         console.log('end:', value)
     });
 });
 
 exports.scheduledRecommend12PM = functions.pubsub.schedule('55 11 * * *').timeZone('America/New_York').onRun((context) => {
     console.log('12pm')
-    return sendArticlesAtTime('12:00', false).then(function(value){
+    return sendArticlesAtTime('12:00', true).then(function(value){
         console.log('end:', value)
     });
 });
 
 exports.scheduledRecommend6PM = functions.pubsub.schedule('55 17 * * *').timeZone('America/New_York').onRun((context) => {
     console.log('6pm')
-    return sendArticlesAtTime('18:00', true).then(function(value){
+    return sendArticlesAtTime('18:00', false).then(function(value){
         console.log('end:', value)
     });
 });
 
 exports.scheduledRecommend9PM = functions.pubsub.schedule('55 20 * * *').timeZone('America/New_York').onRun((context) => {
     console.log('9pm')
-    return sendArticlesAtTime('21:00', false).then(function(value){
+    return sendArticlesAtTime('21:00', true).then(function(value){
         console.log('end:', value)
     });
 });
